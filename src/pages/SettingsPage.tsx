@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useDemoMode } from '../hooks/useDemoMode';
+import { LockContext } from '../context/LockContext';
 import { exportFullBackup, exportQuickBackup } from '../utils/backup';
 import { restoreFromFile } from '../utils/restore';
 import { clearAllData } from '../db';
@@ -39,6 +41,150 @@ function ActionButton({
       </div>
       {loading && <LoadingSpinner size="sm" />}
     </button>
+  );
+}
+
+function PassphraseSection() {
+  const { isPassphraseSet, setPassphrase, removePassphrase, lock } = useContext(LockContext);
+  const [mode, setMode] = useState<'idle' | 'set' | 'change' | 'remove'>('idle');
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const reset = () => { setMode('idle'); setCurrent(''); setNext(''); setConfirm(''); setMsg(null); };
+
+  const showMsg = (text: string, ok: boolean) => {
+    setMsg({ text, ok });
+    setTimeout(() => setMsg(null), 3000);
+  };
+
+  const handleSave = async () => {
+    if (next !== confirm) { showMsg('Passphrases do not match.', false); return; }
+    if (next.length < 4) { showMsg('Passphrase must be at least 4 characters.', false); return; }
+    setWorking(true);
+    const ok = await setPassphrase(next, isPassphraseSet ? current : undefined);
+    setWorking(false);
+    if (ok) { showMsg('Passphrase saved!', true); reset(); }
+    else showMsg('Current passphrase incorrect.', false);
+  };
+
+  const handleRemove = async () => {
+    setWorking(true);
+    const ok = await removePassphrase(current);
+    setWorking(false);
+    if (ok) { showMsg('Passphrase removed.', true); reset(); }
+    else showMsg('Incorrect passphrase.', false);
+  };
+
+  const EyeBtn = () => (
+    <button type="button" onClick={() => setShowPwd(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2">
+      {showPwd ? <EyeOff className="w-4 h-4 text-[var(--color-text-muted)]" /> : <Eye className="w-4 h-4 text-[var(--color-text-muted)]" />}
+    </button>
+  );
+
+  const PwdInput = ({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) => (
+    <div className="relative">
+      <input
+        type={showPwd ? 'text' : 'password'}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full border border-[var(--color-border)] rounded-xl px-3 py-2.5 pr-10 text-sm"
+      />
+      <EyeBtn />
+    </div>
+  );
+
+  return (
+    <div className="card space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold">🔒 App Lock</h2>
+        {isPassphraseSet && (
+          <button
+            onClick={lock}
+            className="text-xs font-medium px-3 py-1.5 border border-[var(--color-border)] rounded-lg text-[var(--color-navy)]"
+          >
+            Lock Now
+          </button>
+        )}
+      </div>
+
+      <p className="text-sm text-[var(--color-text-muted)]">
+        {isPassphraseSet
+          ? 'App is protected. Enter passphrase each time you open it.'
+          : 'Set a passphrase to lock the app on startup.'}
+      </p>
+
+      {msg && (
+        <p className={`text-xs font-medium ${msg.ok ? 'text-[var(--color-positive)]' : 'text-[var(--color-danger)]'}`}>
+          {msg.text}
+        </p>
+      )}
+
+      {mode === 'idle' && (
+        <div className="flex flex-wrap gap-2">
+          {!isPassphraseSet ? (
+            <button onClick={() => setMode('set')} className="px-4 py-2 bg-[var(--color-navy)] text-white rounded-xl text-sm font-medium">
+              Set Passphrase
+            </button>
+          ) : (
+            <>
+              <button onClick={() => setMode('change')} className="px-4 py-2 bg-[var(--color-navy)] text-white rounded-xl text-sm font-medium">
+                Change Passphrase
+              </button>
+              <button onClick={() => setMode('remove')} className="px-4 py-2 border border-[var(--color-danger)] text-[var(--color-danger)] rounded-xl text-sm font-medium">
+                Remove
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {mode === 'set' && (
+        <div className="space-y-3">
+          <PwdInput value={next} onChange={setNext} placeholder="New passphrase" />
+          <PwdInput value={confirm} onChange={setConfirm} placeholder="Confirm passphrase" />
+          <div className="flex gap-2">
+            <button onClick={reset} className="flex-1 py-2 border border-[var(--color-border)] rounded-xl text-sm">Cancel</button>
+            <button onClick={handleSave} disabled={!next || !confirm || working}
+              className="flex-1 py-2 bg-[var(--color-navy)] text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40">
+              {working && <LoadingSpinner size="sm" />} Save
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mode === 'change' && (
+        <div className="space-y-3">
+          <PwdInput value={current} onChange={setCurrent} placeholder="Current passphrase" />
+          <PwdInput value={next} onChange={setNext} placeholder="New passphrase" />
+          <PwdInput value={confirm} onChange={setConfirm} placeholder="Confirm new passphrase" />
+          <div className="flex gap-2">
+            <button onClick={reset} className="flex-1 py-2 border border-[var(--color-border)] rounded-xl text-sm">Cancel</button>
+            <button onClick={handleSave} disabled={!current || !next || !confirm || working}
+              className="flex-1 py-2 bg-[var(--color-navy)] text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40">
+              {working && <LoadingSpinner size="sm" />} Save
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mode === 'remove' && (
+        <div className="space-y-3">
+          <PwdInput value={current} onChange={setCurrent} placeholder="Current passphrase" />
+          <div className="flex gap-2">
+            <button onClick={reset} className="flex-1 py-2 border border-[var(--color-border)] rounded-xl text-sm">Cancel</button>
+            <button onClick={handleRemove} disabled={!current || working}
+              className="flex-1 py-2 bg-[var(--color-danger)] text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40">
+              {working && <LoadingSpinner size="sm" />} Remove Lock
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -135,6 +281,9 @@ export default function SettingsPage() {
           {message.text}
         </div>
       )}
+
+      {/* App Lock */}
+      <PassphraseSection />
 
       {/* Backup & Restore */}
       <Section title="💾 Backup & Restore">
