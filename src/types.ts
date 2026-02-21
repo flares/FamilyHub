@@ -123,9 +123,14 @@ export type DocumentCategory =
 export interface UploadedDocument extends BaseEntity {
   label: string;
   category: DocumentCategory;
+  // Primary / first file (backward-compat)
   fileId: string;
   fileName: string;
   fileType: string;
+  // Multi-file support (images)
+  fileIds?: string[];
+  fileNames?: string[];
+  fileTypes?: string[];
   fileSizeBytes: number;
   tags: string[];
   notes: string;

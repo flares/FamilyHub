@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, X } from 'lucide-react';
+import { Pencil, X, ChevronRight, ChevronDown } from 'lucide-react';
 import { useStore } from '../hooks/useStore';
 import DataCard from '../components/DataCard';
 import FormModal from '../components/FormModal';
@@ -60,10 +60,18 @@ export default function IdsCardsPage() {
   const [previewItem, setPreviewItem] = useState<IdCard | null>(null);
 
   const [sections, setSections] = useState<string[]>(loadSections);
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set()); // all collapsed by default
   const [showManageSections, setShowManageSections] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
   const [renamingSection, setRenamingSection] = useState<string | null>(null);
   const [renameTo, setRenameTo] = useState('');
+
+  const toggleSection = (name: string) =>
+    setOpenSections(prev => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
 
   const saveSections = (next: string[]) => {
     setSections(next);
@@ -169,129 +177,83 @@ export default function IdsCardsPage() {
         />
       ) : (
         <>
-          {/* Grouped by person/section */}
-          {sections.map(section => {
-            const items = typeFiltered.filter(
-              item => (item.person || sections[0]) === section
-            );
+          {/* Accordion sections */}
+          {[
+            ...sections.map(section => ({
+              key: section,
+              label: section,
+              items: typeFiltered.filter(item => (item.person || sections[0]) === section),
+            })),
+            ...(ungrouped.length > 0
+              ? [{ key: '__ungrouped__', label: 'Uncategorised', items: ungrouped }]
+              : []),
+          ].map(({ key, label, items }) => {
             if (items.length === 0) return null;
+            const isOpen = openSections.has(key);
             return (
-              <div key={section} className="space-y-2">
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
-                    {section}
-                  </span>
+              <div key={key} className="card overflow-hidden p-0">
+                {/* Accordion header */}
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
+                  onClick={() => toggleSection(key)}
+                >
+                  {isOpen
+                    ? <ChevronDown className="w-4 h-4 text-[var(--color-text-muted)] flex-shrink-0" />
+                    : <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)] flex-shrink-0" />}
+                  <span className="flex-1 text-sm font-semibold">{label}</span>
                   <span className="badge badge-navy">{items.length}</span>
-                </div>
-                {items.map(item => (
-                  <DataCard
-                    key={item.id}
-                    title={item.label}
-                    subtitle={item.issuer || item.type}
-                    badges={[
-                      { label: item.type.replace('_', ' '), variant: 'navy' },
-                      ...(item.expiryDate ? [{ label: `Exp: ${formatDate(item.expiryDate)}`, variant: 'gold' as const }] : []),
-                    ]}
-                    onEdit={() => openEdit(item)}
-                    onDelete={() => remove(item.id)}
-                    expandedContent={
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-[var(--color-text-muted)]">Full Number</span>
-                          <span className="font-mono">{item.cardNumber}</span>
-                        </div>
-                        {item.expiryDate && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-[var(--color-text-muted)]">Expiry</span>
-                            <span>{formatDate(item.expiryDate)}</span>
-                          </div>
-                        )}
-                        {item.linkedBank && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-[var(--color-text-muted)]">Linked Bank</span>
-                            <span>{item.linkedBank}</span>
-                          </div>
-                        )}
-                        {item.notes && <p className="text-sm text-[var(--color-text-muted)]">{item.notes}</p>}
-                        {item.fileId ? (
-                          <button
-                            onClick={() => setPreviewItem(item)}
-                            className="text-sm text-[var(--color-navy)] font-medium underline"
-                          >
-                            View attached document
-                          </button>
-                        ) : (
-                          <FileUploader
-                            label="Attach scan/photo"
-                            onUploaded={(fileId) => handleFileUploaded(item, fileId)}
-                          />
-                        )}
+                </button>
+
+                {/* Items (DataCards) inside accordion */}
+                {isOpen && (
+                  <div className="border-t border-[var(--color-border)] divide-y divide-[var(--color-border)] px-3 pb-3 pt-2 space-y-2">
+                    {items.map(item => (
+                      <div key={item.id} className="pt-2 first:pt-0">
+                        <DataCard
+                          title={item.label}
+                          subtitle={item.issuer || item.type}
+                          badges={[
+                            { label: item.type.replace('_', ' '), variant: 'navy' },
+                            ...(item.expiryDate ? [{ label: `Exp: ${formatDate(item.expiryDate)}`, variant: 'gold' as const }] : []),
+                          ]}
+                          onEdit={() => openEdit(item)}
+                          onDelete={() => remove(item.id)}
+                          expandedContent={
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-[var(--color-text-muted)]">Full Number</span>
+                                <span className="font-mono">{item.cardNumber}</span>
+                              </div>
+                              {item.expiryDate && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-[var(--color-text-muted)]">Expiry</span>
+                                  <span>{formatDate(item.expiryDate)}</span>
+                                </div>
+                              )}
+                              {item.linkedBank && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-[var(--color-text-muted)]">Linked Bank</span>
+                                  <span>{item.linkedBank}</span>
+                                </div>
+                              )}
+                              {item.notes && <p className="text-sm text-[var(--color-text-muted)]">{item.notes}</p>}
+                              {item.fileId ? (
+                                <button onClick={() => setPreviewItem(item)} className="text-sm text-[var(--color-navy)] font-medium underline">
+                                  View attached document
+                                </button>
+                              ) : (
+                                <FileUploader label="Attach scan/photo" onUploaded={(fileId) => handleFileUploaded(item, fileId)} />
+                              )}
+                            </div>
+                          }
+                        />
                       </div>
-                    }
-                  />
-                ))}
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
-
-          {/* Ungrouped items (legacy / no person set) */}
-          {ungrouped.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 pt-1">
-                <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
-                  Uncategorised
-                </span>
-                <span className="badge badge-navy">{ungrouped.length}</span>
-              </div>
-              {ungrouped.map(item => (
-                <DataCard
-                  key={item.id}
-                  title={item.label}
-                  subtitle={item.issuer || item.type}
-                  badges={[
-                    { label: item.type.replace('_', ' '), variant: 'navy' },
-                    ...(item.expiryDate ? [{ label: `Exp: ${formatDate(item.expiryDate)}`, variant: 'gold' as const }] : []),
-                  ]}
-                  onEdit={() => openEdit(item)}
-                  onDelete={() => remove(item.id)}
-                  expandedContent={
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-[var(--color-text-muted)]">Full Number</span>
-                        <span className="font-mono">{item.cardNumber}</span>
-                      </div>
-                      {item.expiryDate && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-[var(--color-text-muted)]">Expiry</span>
-                          <span>{formatDate(item.expiryDate)}</span>
-                        </div>
-                      )}
-                      {item.linkedBank && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-[var(--color-text-muted)]">Linked Bank</span>
-                          <span>{item.linkedBank}</span>
-                        </div>
-                      )}
-                      {item.notes && <p className="text-sm text-[var(--color-text-muted)]">{item.notes}</p>}
-                      {item.fileId ? (
-                        <button
-                          onClick={() => setPreviewItem(item)}
-                          className="text-sm text-[var(--color-navy)] font-medium underline"
-                        >
-                          View attached document
-                        </button>
-                      ) : (
-                        <FileUploader
-                          label="Attach scan/photo"
-                          onUploaded={(fileId) => handleFileUploaded(item, fileId)}
-                        />
-                      )}
-                    </div>
-                  }
-                />
-              ))}
-            </div>
-          )}
         </>
       )}
 
