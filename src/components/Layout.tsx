@@ -1,7 +1,10 @@
 import { Outlet, useNavigate, useLocation, NavLink } from 'react-router-dom';
-import { Home, Droplets, Target, FolderOpen, Settings, ChevronLeft } from 'lucide-react';
+import { Home, Droplets, Target, FolderOpen, Settings, ChevronLeft, Eye, EyeOff, Lock } from 'lucide-react';
 import DemoBanner from './DemoBanner';
 import { useDemoMode } from '../hooks/useDemoMode';
+import { useHide } from '../context/HideContext';
+import { useContext } from 'react';
+import { LockContext } from '../context/LockContext';
 
 const PAGE_TITLES: Record<string, string> = {
   '/': "Dad's Finance Hub",
@@ -27,6 +30,8 @@ export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isDemo } = useDemoMode();
+  const { isHidden, toggleHide } = useHide();
+  const { isPassphraseSet, lock } = useContext(LockContext);
 
   const title = PAGE_TITLES[location.pathname] || "Dad's Finance";
   const isHome = location.pathname === '/';
@@ -48,9 +53,24 @@ export default function Layout() {
           )}
           <h1 className="text-white font-semibold text-base flex-1 truncate">{title}</h1>
         </div>
-        <button onClick={() => navigate('/settings')} className="p-1.5 rounded-lg hover:bg-white/10">
-          <Settings className="w-5 h-5 text-white" />
-        </button>
+        <div className="flex items-center gap-1">
+          {/* Hide / Show numbers */}
+          <button onClick={toggleHide} className="p-1.5 rounded-lg hover:bg-white/10" title={isHidden ? 'Show numbers' : 'Hide numbers'}>
+            {isHidden
+              ? <EyeOff className="w-5 h-5 text-white" />
+              : <Eye className="w-5 h-5 text-white" />}
+          </button>
+          {/* Lock app */}
+          {isPassphraseSet && (
+            <button onClick={lock} className="p-1.5 rounded-lg hover:bg-white/10" title="Lock app">
+              <Lock className="w-5 h-5 text-white" />
+            </button>
+          )}
+          {/* Settings */}
+          <button onClick={() => navigate('/settings')} className="p-1.5 rounded-lg hover:bg-white/10">
+            <Settings className="w-5 h-5 text-white" />
+          </button>
+        </div>
       </header>
 
       {/* Demo Banner */}

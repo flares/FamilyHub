@@ -2,6 +2,7 @@ import { useContext } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { DemoProvider } from './context/DemoContext';
 import { LockProvider, LockContext } from './context/LockContext';
+import { HideProvider } from './context/HideContext';
 import LockScreen from './components/LockScreen';
 import Layout from './components/Layout';
 import DashboardPage from './pages/DashboardPage';
@@ -40,9 +41,11 @@ export default function App() {
   return (
     <BrowserRouter basename="/FamilyHub">
       <LockProvider>
-        <DemoProvider>
-          <AppRoutes />
-        </DemoProvider>
+        <HideProvider>
+          <DemoProvider>
+            <AppRoutes />
+          </DemoProvider>
+        </HideProvider>
       </LockProvider>
     </BrowserRouter>
   );

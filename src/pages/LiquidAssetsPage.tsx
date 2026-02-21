@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { useStore } from '../hooks/useStore';
 import FormModal from '../components/FormModal';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { formatCurrency, formatCurrencyShort } from '../utils/currency';
+import { useCurrency } from '../hooks/useCurrency';
 import { formatDate, getMaturityStatus } from '../utils/dates';
 import type { FixedDeposit, MutualFund, FieldConfig } from '../types';
 
@@ -53,6 +53,7 @@ export default function LiquidAssetsPage() {
   const [showFdForm, setShowFdForm] = useState(false);
   const [showMfForm, setShowMfForm] = useState(false);
 
+  const { formatCurrency, formatCurrencyShort } = useCurrency();
   const fds = fdsData as FixedDeposit[];
   const mfs = mfsData as MutualFund[];
 
