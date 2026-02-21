@@ -39,6 +39,7 @@ export interface IdCard extends BaseEntity {
   linkedBank: string;
   fileId: string;
   notes: string;
+  person?: string;
 }
 
 // ──────────────────────────────────────
@@ -128,6 +129,7 @@ export interface UploadedDocument extends BaseEntity {
   fileSizeBytes: number;
   tags: string[];
   notes: string;
+  section?: string;
 }
 
 // ──────────────────────────────────────

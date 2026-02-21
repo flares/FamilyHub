@@ -53,85 +53,61 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      {/* Net Worth Hero Card */}
+      {/* Liquid Assets hero */}
       <div
-        className="rounded-2xl p-6 text-white"
-        style={{ background: 'linear-gradient(135deg, var(--color-navy) 0%, var(--color-navy-light) 100%)' }}
+        className="rounded-2xl p-5 cursor-pointer active:scale-[0.98] transition-transform select-none"
+        style={{ background: 'linear-gradient(135deg, #1B3A4A 0%, #2D8B6F 100%)' }}
+        onClick={() => navigate('/liquid')}
       >
-        <p className="text-white/70 text-sm font-medium mb-2">Total Net Worth</p>
-        <p className="currency-hero" style={{ color: 'var(--color-gold)' }}>
-          {formatCurrency(netWorth)}
-        </p>
-      </div>
-
-      {/* Liquid + Illiquid Cards */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="card card-tappable card-gold-accent" onClick={() => navigate('/liquid')}>
-          <div className="flex items-center gap-2 mb-2 text-[var(--color-text-muted)]">
-            <Droplets className="w-4 h-4" />
-            <span className="text-xs font-medium">Liquid Assets</span>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <Droplets className="w-4 h-4 text-white/70" />
+            <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">Liquid Assets</span>
           </div>
-          <p className="currency font-semibold text-lg">{formatCurrency(liquidTotal)}</p>
-          <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            FDs: {formatCurrencyShort(fdTotal)} · MFs: {formatCurrencyShort(mfTotal)}
-          </p>
-          <div className="flex items-center gap-1 mt-3 text-xs text-[var(--color-gold)] font-medium">
-            <span>View Details</span>
-            <ChevronRight className="w-3 h-3" />
-          </div>
+          <ChevronRight className="w-4 h-4 text-white/40" />
         </div>
-
-        <div className="card card-tappable card-gold-accent" onClick={() => navigate('/illiquid')}>
-          <div className="flex items-center gap-2 mb-2 text-[var(--color-text-muted)]">
-            <Home className="w-4 h-4" />
-            <span className="text-xs font-medium">Illiquid Assets</span>
+        <p className="text-white text-2xl font-bold mb-3">{formatCurrency(liquidTotal)}</p>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-white/10 rounded-xl px-3 py-2">
+            <p className="text-white/60 text-xs mb-0.5">Fixed Deposits</p>
+            <p className="font-semibold text-sm" style={{ color: '#C8956C' }}>{formatCurrency(fdTotal)}</p>
           </div>
-          <p className="currency font-semibold text-lg">{formatCurrency(illiquidTotal)}</p>
-          <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            {houseCount > 0 ? `${houseCount} House${houseCount > 1 ? 's' : ''}` : ''}
-            {houseCount > 0 && landCount > 0 ? ' · ' : ''}
-            {landCount > 0 ? `${landCount} Land` : ''}
-            {houseCount === 0 && landCount === 0 ? 'No properties' : ''}
-          </p>
-          <div className="flex items-center gap-1 mt-3 text-xs text-[var(--color-gold)] font-medium">
-            <span>View Details</span>
-            <ChevronRight className="w-3 h-3" />
+          <div className="bg-white/10 rounded-xl px-3 py-2">
+            <p className="text-white/60 text-xs mb-0.5">Mutual Funds</p>
+            <p className="font-semibold text-sm" style={{ color: '#7ED4B8' }}>{formatCurrency(mfTotal)}</p>
           </div>
         </div>
       </div>
 
-      {/* Asset Breakdown Chart */}
-      <div className="card">
-        <h2 className="text-base font-semibold mb-3">Asset Breakdown</h2>
-        {chartData.length === 0 ? (
-          <EmptyState title="No assets yet" description="Add FDs, MFs or properties to see breakdown." />
-        ) : (
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={chartData}
-                cx="50%"
-                cy="50%"
-                innerRadius={55}
-                outerRadius={80}
-                paddingAngle={2}
-                dataKey="value"
-              >
-                {chartData.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(v: number) => formatCurrency(v)} />
-              <Legend
-                formatter={(value, entry) => {
-                  const item = chartData.find(d => d.name === value);
-                  const pct = netWorth > 0 ? ((item?.value || 0) / netWorth * 100).toFixed(0) : '0';
-                  return `${value}: ${formatCurrencyShort(entry.payload?.value || 0)} (${pct}%)`;
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        )}
+      {/* Illiquid Assets hero */}
+      <div
+        className="rounded-2xl p-5 cursor-pointer active:scale-[0.98] transition-transform select-none"
+        style={{ background: 'linear-gradient(135deg, #1B2A4A 0%, #7C4A1E 100%)' }}
+        onClick={() => navigate('/illiquid')}
+      >
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <Home className="w-4 h-4 text-white/70" />
+            <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">Illiquid Assets</span>
+          </div>
+          <ChevronRight className="w-4 h-4 text-white/40" />
+        </div>
+        <p className="text-white text-2xl font-bold mb-3">{formatCurrency(illiquidTotal)}</p>
+        <div className="flex flex-wrap gap-2">
+          {houseCount > 0 && (
+            <span className="bg-white/10 rounded-xl px-3 py-1.5 text-white/80 text-xs font-medium">
+              🏠 {houseCount} House{houseCount > 1 ? 's' : ''}
+            </span>
+          )}
+          {landCount > 0 && (
+            <span className="bg-white/10 rounded-xl px-3 py-1.5 text-white/80 text-xs font-medium">
+              🌾 {landCount} Land parcel{landCount > 1 ? 's' : ''}
+            </span>
+          )}
+          {houseCount === 0 && landCount === 0 && (
+            <span className="text-white/40 text-xs">No properties yet</span>
+          )}
+        </div>
       </div>
 
       {/* Retirement Progress */}
@@ -175,6 +151,40 @@ export default function DashboardPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Asset Breakdown — bottom */}
+      <div className="card">
+        <h2 className="text-base font-semibold mb-3">Asset Breakdown</h2>
+        {chartData.length === 0 ? (
+          <EmptyState title="No assets yet" description="Add FDs, MFs or properties to see breakdown." />
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                innerRadius={55}
+                outerRadius={80}
+                paddingAngle={2}
+                dataKey="value"
+              >
+                {chartData.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v: number) => formatCurrency(v)} />
+              <Legend
+                formatter={(value, entry) => {
+                  const item = chartData.find(d => d.name === value);
+                  const pct = netWorth > 0 ? ((item?.value || 0) / netWorth * 100).toFixed(0) : '0';
+                  return `${value}: ${formatCurrencyShort(entry.payload?.value || 0)} (${pct}%)`;
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );
