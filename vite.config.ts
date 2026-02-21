@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  base: '/dad-finance-tracker/',
+  base: '/FamilyHub/',
   plugins: [
     react(),
     tailwindcss(),
@@ -19,8 +19,8 @@ export default defineConfig({
         background_color: '#F7F8FA',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/dad-finance-tracker/',
-        start_url: '/dad-finance-tracker/',
+        scope: '/FamilyHub/',
+        start_url: '/FamilyHub/',
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },

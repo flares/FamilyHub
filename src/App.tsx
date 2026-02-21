@@ -14,7 +14,7 @@ import SettingsPage from './pages/SettingsPage';
 
 export default function App() {
   return (
-    <BrowserRouter basename="/dad-finance-tracker">
+    <BrowserRouter basename="/FamilyHub">
       <DemoProvider>
         <Routes>
           <Route element={<Layout />}>
