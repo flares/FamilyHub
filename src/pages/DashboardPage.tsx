@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Droplets, Home, Target, CreditCard, FolderOpen, Settings, ChevronRight } from 'lucide-react';
+import { Droplets, Home, Target, CreditCard, ChevronRight } from 'lucide-react';
 import { useStore } from '../hooks/useStore';
-import { formatCurrency, formatCurrencyShort } from '../utils/currency';
+import { useCurrency } from '../hooks/useCurrency';
 import ProgressBar from '../components/ProgressBar';
 import EmptyState from '../components/EmptyState';
 import type { FixedDeposit, MutualFund, Property, RetirementItem } from '../types';
@@ -11,6 +11,7 @@ const COLORS = { fd: '#C8956C', mf: '#2D8B6F', property: '#1B2A4A' };
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { formatCurrency, formatCurrencyShort, isHidden } = useCurrency();
   const { data: fds } = useStore<'fixedDeposits'>('fixedDeposits');
   const { data: mfs } = useStore<'mutualFunds'>('mutualFunds');
   const { data: properties } = useStore<'properties'>('properties');
@@ -47,8 +48,6 @@ export default function DashboardPage() {
   const quickLinks = [
     { icon: <CreditCard className="w-5 h-5" />, label: 'Bank Accounts', to: '/bank-accounts' },
     { icon: <span className="text-xl">🪪</span>, label: 'IDs & Cards', to: '/ids-cards' },
-    { icon: <FolderOpen className="w-5 h-5" />, label: 'Documents', to: '/documents' },
-    { icon: <Settings className="w-5 h-5" />, label: 'Settings', to: '/settings' },
   ];
 
   return (
@@ -139,12 +138,12 @@ export default function DashboardPage() {
       {/* Quick Links */}
       <div>
         <h2 className="text-sm font-semibold text-[var(--color-text-muted)] mb-2 uppercase tracking-wide">Quick Links</h2>
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="grid grid-cols-2 gap-3">
           {quickLinks.map(link => (
             <button
               key={link.to}
               onClick={() => navigate(link.to)}
-              className="flex-shrink-0 card flex flex-col items-center gap-2 px-4 py-3 min-w-[80px] card-tappable"
+              className="card flex flex-col items-center gap-2 py-4 card-tappable"
             >
               <span className="text-[var(--color-navy)]">{link.icon}</span>
               <span className="text-xs font-medium text-center">{link.label}</span>
@@ -158,6 +157,8 @@ export default function DashboardPage() {
         <h2 className="text-base font-semibold mb-3">Asset Breakdown</h2>
         {chartData.length === 0 ? (
           <EmptyState title="No assets yet" description="Add FDs, MFs or properties to see breakdown." />
+        ) : isHidden ? (
+          <p className="text-sm text-center text-[var(--color-text-muted)] py-6">Numbers hidden</p>
         ) : (
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>

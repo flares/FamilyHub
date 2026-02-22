@@ -6,7 +6,7 @@ import EmptyState from '../components/EmptyState';
 import FileUploader from '../components/FileUploader';
 import FilePreview from '../components/FilePreview';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { formatCurrency } from '../utils/currency';
+import { useCurrency } from '../hooks/useCurrency';
 import { formatDate } from '../utils/dates';
 import type { Property, FieldConfig } from '../types';
 
@@ -44,6 +44,7 @@ export default function IlliquidAssetsPage() {
   const [editItem, setEditItem] = useState<Property | null>(null);
   const [previewFile, setPreviewFile] = useState<{ fileId: string; name: string } | null>(null);
 
+  const { formatCurrency } = useCurrency();
   const properties = data as Property[];
   const total = properties.reduce((s, p) => s + p.estimatedValue, 0);
 

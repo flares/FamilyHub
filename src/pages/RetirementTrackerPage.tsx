@@ -5,7 +5,7 @@ import FormModal from '../components/FormModal';
 import EmptyState from '../components/EmptyState';
 import ProgressBar from '../components/ProgressBar';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { formatCurrency } from '../utils/currency';
+import { useCurrency } from '../hooks/useCurrency';
 import { formatDate } from '../utils/dates';
 import type { RetirementItem, FieldConfig } from '../types';
 
@@ -78,6 +78,7 @@ export default function RetirementTrackerPage() {
   const [inProgressExpanded, setInProgressExpanded] = useState(true);
   const [completedExpanded, setCompletedExpanded] = useState(false);
 
+  const { formatCurrency } = useCurrency();
   const items = data as RetirementItem[];
   const completed = items.filter(i => i.status === 'completed');
   const inProgress = items.filter(i => i.status === 'in_progress')

@@ -4,7 +4,7 @@ import DataCard from '../components/DataCard';
 import FormModal from '../components/FormModal';
 import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { formatCurrency } from '../utils/currency';
+import { useCurrency } from '../hooks/useCurrency';
 import { formatDate, getMaturityStatus, formatMaturityCountdown } from '../utils/dates';
 import type { FixedDeposit, FieldConfig } from '../types';
 
@@ -39,6 +39,7 @@ export default function FixedDepositsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<FixedDeposit | null>(null);
 
+  const { formatCurrency } = useCurrency();
   const fds = (data as FixedDeposit[]).sort((a, b) =>
     new Date(a.maturityDate).getTime() - new Date(b.maturityDate).getTime()
   );

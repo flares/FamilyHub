@@ -4,7 +4,7 @@ import DataCard from '../components/DataCard';
 import FormModal from '../components/FormModal';
 import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { formatCurrency } from '../utils/currency';
+import { useCurrency } from '../hooks/useCurrency';
 import type { MutualFund, FieldConfig } from '../types';
 
 const FIELDS: FieldConfig[] = [
@@ -32,6 +32,7 @@ export default function MutualFundsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<MutualFund | null>(null);
 
+  const { formatCurrency } = useCurrency();
   const mfs = data as MutualFund[];
   const totalInvested = mfs.reduce((s, mf) => s + mf.investedAmount, 0);
   const totalCurrent = mfs.reduce((s, mf) => s + mf.currentValue, 0);

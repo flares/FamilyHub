@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useContext } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, X } from 'lucide-react';
 import { useDemoMode } from '../hooks/useDemoMode';
 import { LockContext } from '../context/LockContext';
 import { exportFullBackup, exportQuickBackup } from '../utils/backup';
@@ -8,41 +8,78 @@ import { clearAllData } from '../db';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { formatDate } from '../utils/dates';
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+// ── Module-level stable components (prevents keyboard-dismiss bug) ─────────
+
+function PwdField({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  const [show, setShow] = useState(false);
   return (
-    <div className="card space-y-4">
-      <h2 className="text-base font-semibold">{title}</h2>
-      {children}
+    <div className="relative">
+      <input
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full border border-[var(--color-border)] rounded-xl px-3 py-2.5 pr-10 text-sm"
+      />
+      <button
+        type="button"
+        onClick={() => setShow(s => !s)}
+        className="absolute right-3 top-1/2 -translate-y-1/2"
+      >
+        {show
+          ? <EyeOff className="w-4 h-4 text-[var(--color-text-muted)]" />
+          : <Eye className="w-4 h-4 text-[var(--color-text-muted)]" />}
+      </button>
     </div>
   );
 }
 
-function ActionButton({
-  onClick, label, sub, loading, disabled, variant = 'default',
+function PasswordModal({
+  title,
+  description,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+  confirmVariant = 'navy',
 }: {
-  onClick: () => void; label: string; sub?: string;
-  loading?: boolean; disabled?: boolean; variant?: 'default' | 'danger' | 'navy';
+  title: string;
+  description?: string;
+  confirmLabel: string;
+  onConfirm: (pwd: string) => void;
+  onCancel: () => void;
+  confirmVariant?: 'navy' | 'danger';
 }) {
-  const bg = variant === 'danger'
-    ? 'bg-[var(--color-danger-light)] text-[var(--color-danger)] border border-[var(--color-danger)]'
-    : variant === 'navy'
-    ? 'bg-[var(--color-navy)] text-white'
-    : 'bg-white border border-[var(--color-border)] text-[var(--color-text)]';
-
+  const [pwd, setPwd] = useState('');
+  const btnClass = confirmVariant === 'danger'
+    ? 'flex-1 py-2 bg-[var(--color-danger)] text-white rounded-xl text-sm font-medium disabled:opacity-40'
+    : 'flex-1 py-2 bg-[var(--color-navy)] text-white rounded-xl text-sm font-medium disabled:opacity-40';
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled || loading}
-      className={`w-full p-3 rounded-xl text-left flex items-center justify-between gap-3 disabled:opacity-50 ${bg}`}
-    >
-      <div>
-        <p className="text-sm font-medium">{label}</p>
-        {sub && <p className="text-xs opacity-60 mt-0.5">{sub}</p>}
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4" onClick={onCancel}>
+      <div className="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold">{title}</h3>
+          <button onClick={onCancel}><X className="w-5 h-5 text-[var(--color-text-muted)]" /></button>
+        </div>
+        {description && <p className="text-sm text-[var(--color-text-muted)]">{description}</p>}
+        <PwdField value={pwd} onChange={setPwd} placeholder="Password" />
+        <div className="flex gap-2">
+          <button onClick={onCancel} className="flex-1 py-2 border border-[var(--color-border)] rounded-xl text-sm">Cancel</button>
+          <button onClick={() => onConfirm(pwd)} className={btnClass}>{confirmLabel}</button>
+        </div>
       </div>
-      {loading && <LoadingSpinner size="sm" />}
-    </button>
+    </div>
   );
 }
+
+// ── PassphraseSection ─────────────────────────────────────────────────────
 
 function PassphraseSection() {
   const { isPassphraseSet, setPassphrase, removePassphrase, lock } = useContext(LockContext);
@@ -50,7 +87,6 @@ function PassphraseSection() {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [showPwd, setShowPwd] = useState(false);
   const [working, setWorking] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
@@ -78,25 +114,6 @@ function PassphraseSection() {
     if (ok) { showMsg('Passphrase removed.', true); reset(); }
     else showMsg('Incorrect passphrase.', false);
   };
-
-  const EyeBtn = () => (
-    <button type="button" onClick={() => setShowPwd(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2">
-      {showPwd ? <EyeOff className="w-4 h-4 text-[var(--color-text-muted)]" /> : <Eye className="w-4 h-4 text-[var(--color-text-muted)]" />}
-    </button>
-  );
-
-  const PwdInput = ({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) => (
-    <div className="relative">
-      <input
-        type={showPwd ? 'text' : 'password'}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full border border-[var(--color-border)] rounded-xl px-3 py-2.5 pr-10 text-sm"
-      />
-      <EyeBtn />
-    </div>
-  );
 
   return (
     <div className="card space-y-4">
@@ -145,8 +162,8 @@ function PassphraseSection() {
 
       {mode === 'set' && (
         <div className="space-y-3">
-          <PwdInput value={next} onChange={setNext} placeholder="New passphrase" />
-          <PwdInput value={confirm} onChange={setConfirm} placeholder="Confirm passphrase" />
+          <PwdField value={next} onChange={setNext} placeholder="New passphrase" />
+          <PwdField value={confirm} onChange={setConfirm} placeholder="Confirm passphrase" />
           <div className="flex gap-2">
             <button onClick={reset} className="flex-1 py-2 border border-[var(--color-border)] rounded-xl text-sm">Cancel</button>
             <button onClick={handleSave} disabled={!next || !confirm || working}
@@ -159,9 +176,9 @@ function PassphraseSection() {
 
       {mode === 'change' && (
         <div className="space-y-3">
-          <PwdInput value={current} onChange={setCurrent} placeholder="Current passphrase" />
-          <PwdInput value={next} onChange={setNext} placeholder="New passphrase" />
-          <PwdInput value={confirm} onChange={setConfirm} placeholder="Confirm new passphrase" />
+          <PwdField value={current} onChange={setCurrent} placeholder="Current passphrase" />
+          <PwdField value={next} onChange={setNext} placeholder="New passphrase" />
+          <PwdField value={confirm} onChange={setConfirm} placeholder="Confirm new passphrase" />
           <div className="flex gap-2">
             <button onClick={reset} className="flex-1 py-2 border border-[var(--color-border)] rounded-xl text-sm">Cancel</button>
             <button onClick={handleSave} disabled={!current || !next || !confirm || working}
@@ -174,7 +191,7 @@ function PassphraseSection() {
 
       {mode === 'remove' && (
         <div className="space-y-3">
-          <PwdInput value={current} onChange={setCurrent} placeholder="Current passphrase" />
+          <PwdField value={current} onChange={setCurrent} placeholder="Current passphrase" />
           <div className="flex gap-2">
             <button onClick={reset} className="flex-1 py-2 border border-[var(--color-border)] rounded-xl text-sm">Cancel</button>
             <button onClick={handleRemove} disabled={!current || working}
@@ -188,6 +205,46 @@ function PassphraseSection() {
   );
 }
 
+// ── Shared sub-components ─────────────────────────────────────────────────
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="card space-y-4">
+      <h2 className="text-base font-semibold">{title}</h2>
+      {children}
+    </div>
+  );
+}
+
+function ActionButton({
+  onClick, label, sub, loading, disabled, variant = 'default',
+}: {
+  onClick: () => void; label: string; sub?: string;
+  loading?: boolean; disabled?: boolean; variant?: 'default' | 'danger' | 'navy';
+}) {
+  const bg = variant === 'danger'
+    ? 'bg-[var(--color-danger-light)] text-[var(--color-danger)] border border-[var(--color-danger)]'
+    : variant === 'navy'
+    ? 'bg-[var(--color-navy)] text-white'
+    : 'bg-white border border-[var(--color-border)] text-[var(--color-text)]';
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled || loading}
+      className={`w-full p-3 rounded-xl text-left flex items-center justify-between gap-3 disabled:opacity-50 ${bg}`}
+    >
+      <div>
+        <p className="text-sm font-medium">{label}</p>
+        {sub && <p className="text-xs opacity-60 mt-0.5">{sub}</p>}
+      </div>
+      {loading && <LoadingSpinner size="sm" />}
+    </button>
+  );
+}
+
+// ── Main SettingsPage ─────────────────────────────────────────────────────
+
 export default function SettingsPage() {
   const { isDemo, toggleDemo } = useDemoMode();
   const [fullBackupLoading, setFullBackupLoading] = useState(false);
@@ -200,6 +257,13 @@ export default function SettingsPage() {
   const [lastBackup, setLastBackup] = useState<string | null>(null);
   const [storageUsed, setStorageUsed] = useState<string>('...');
   const restoreRef = useRef<HTMLInputElement>(null);
+
+  // Backup password modal
+  const [showBackupPwdModal, setShowBackupPwdModal] = useState(false);
+
+  // Restore password modal
+  const [pendingRestoreFile, setPendingRestoreFile] = useState<File | null>(null);
+  const [showRestorePwdModal, setShowRestorePwdModal] = useState(false);
 
   useEffect(() => {
     setLastBackup(localStorage.getItem('lastBackupDate'));
@@ -217,10 +281,11 @@ export default function SettingsPage() {
     setTimeout(() => setMessage(null), 4000);
   };
 
-  const handleFullBackup = async () => {
+  const doFullBackup = async (password: string) => {
+    setShowBackupPwdModal(false);
     setFullBackupLoading(true);
     try {
-      await exportFullBackup();
+      await exportFullBackup(password || undefined);
       setLastBackup(new Date().toISOString());
       showMsg('Full backup downloaded!', true);
     } catch {
@@ -243,20 +308,37 @@ export default function SettingsPage() {
     }
   };
 
-  const handleRestoreFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = '';
-    if (!window.confirm('This will REPLACE all your current data. Are you sure?')) return;
+  const doRestore = async (file: File, password?: string) => {
     setRestoreLoading(true);
     try {
-      const result = await restoreFromFile(file);
+      const result = await restoreFromFile(file, password);
+      if (!result.success && result.needsPassword) {
+        setPendingRestoreFile(file);
+        setShowRestorePwdModal(true);
+        return;
+      }
       showMsg(result.message, result.success);
     } catch {
       showMsg('Restore failed. Invalid file.', false);
     } finally {
       setRestoreLoading(false);
     }
+  };
+
+  const handleRestoreFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    if (!window.confirm('This will REPLACE all your current data. Are you sure?')) return;
+    await doRestore(file);
+  };
+
+  const handleRestoreWithPassword = async (pwd: string) => {
+    setShowRestorePwdModal(false);
+    if (!pendingRestoreFile) return;
+    const file = pendingRestoreFile;
+    setPendingRestoreFile(null);
+    await doRestore(file, pwd);
   };
 
   const handleClearData = async () => {
@@ -289,7 +371,7 @@ export default function SettingsPage() {
       <Section title="💾 Backup & Restore">
         <div className="space-y-2">
           <ActionButton
-            onClick={handleFullBackup}
+            onClick={() => setShowBackupPwdModal(true)}
             loading={fullBackupLoading}
             label="📦 Full Backup (ZIP)"
             sub="Data + all uploaded files"
@@ -331,10 +413,12 @@ export default function SettingsPage() {
           </div>
           <button
             onClick={toggleDemo}
-            className={`relative w-12 h-6 rounded-full transition-colors ${isDemo ? 'bg-[var(--color-gold)]' : 'bg-[var(--color-border)]'}`}
+            style={{ backgroundColor: isDemo ? 'var(--color-gold)' : 'var(--color-border)' }}
+            className="relative w-12 h-6 rounded-full transition-colors flex-shrink-0"
           >
             <span
-              className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${isDemo ? 'translate-x-7' : 'translate-x-1'}`}
+              style={{ transform: isDemo ? 'translateX(28px)' : 'translateX(4px)' }}
+              className="absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform"
             />
           </button>
         </div>
@@ -391,6 +475,28 @@ export default function SettingsPage() {
           <p className="text-sm text-[var(--color-text-muted)]">Storage used: {storageUsed}</p>
         </div>
       </Section>
+
+      {/* Backup password modal */}
+      {showBackupPwdModal && (
+        <PasswordModal
+          title="Encrypt Backup"
+          description="Optional: enter a password to encrypt your backup. Leave empty for no encryption."
+          confirmLabel="Download Backup"
+          onConfirm={doFullBackup}
+          onCancel={() => setShowBackupPwdModal(false)}
+        />
+      )}
+
+      {/* Restore password modal */}
+      {showRestorePwdModal && (
+        <PasswordModal
+          title="Backup Password"
+          description="This backup is encrypted. Enter the password used when creating it."
+          confirmLabel="Decrypt & Restore"
+          onConfirm={handleRestoreWithPassword}
+          onCancel={() => { setShowRestorePwdModal(false); setPendingRestoreFile(null); }}
+        />
+      )}
     </div>
   );
 }

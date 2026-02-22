@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   FileText, Image as ImageIcon, Download, Trash2, Search,
   Pencil, X, FolderInput, ChevronRight, ChevronDown, Share2, Check,
+  ChevronUp,
 } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { useStore } from '../hooks/useStore';
@@ -46,16 +47,18 @@ function docFileTypes(doc: UploadedDocument): string[] {
 interface ViewerProps {
   doc: UploadedDocument;
   onClose: () => void;
+  onDelete: () => void;
   getFile: (id: string) => Promise<StoredFile | null>;
 }
 
-function DocViewer({ doc, onClose, getFile }: ViewerProps) {
+function DocViewer({ doc, onClose, onDelete, getFile }: ViewerProps) {
   const ids = docFileIds(doc);
   const names = docFileNames(doc);
   const types = docFileTypes(doc);
   const [files, setFiles] = useState<{ url: string; blob: Blob; name: string; type: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [sharing, setSharing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     const urls: string[] = [];
@@ -82,7 +85,6 @@ function DocViewer({ doc, onClose, getFile }: ViewerProps) {
       if (navigator.share && navigator.canShare && navigator.canShare({ files: shareFiles })) {
         await navigator.share({ files: shareFiles, title: doc.label });
       } else {
-        // Fallback: download all
         for (const f of files) saveAs(f.blob, f.name);
       }
     } catch {
@@ -115,6 +117,9 @@ function DocViewer({ doc, onClose, getFile }: ViewerProps) {
         </button>
         <button onClick={handleDownload} disabled={loading} className="p-2 rounded-full bg-white/10 disabled:opacity-40">
           <Download className="w-5 h-5 text-white" />
+        </button>
+        <button onClick={() => setConfirmDelete(true)} className="p-2 rounded-full bg-white/10">
+          <Trash2 className="w-5 h-5 text-[var(--color-danger)]" />
         </button>
       </div>
 
@@ -154,6 +159,21 @@ function DocViewer({ doc, onClose, getFile }: ViewerProps) {
           )
         )}
       </div>
+
+      {/* Delete confirm overlay */}
+      {confirmDelete && (
+        <div className="absolute inset-0 bg-black/80 flex items-center justify-center p-6 z-10" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#1a1a1a] rounded-2xl p-5 w-full max-w-xs space-y-4 border border-white/10">
+            <p className="text-white font-semibold text-base">Delete document?</p>
+            <p className="text-white/60 text-sm">"{doc.label}" will be permanently deleted.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmDelete(false)} className="flex-1 py-2 rounded-xl border border-white/20 text-white text-sm">Cancel</button>
+              <button onClick={() => { setConfirmDelete(false); onClose(); onDelete(); }}
+                className="flex-1 py-2 rounded-xl bg-[var(--color-danger)] text-white text-sm font-medium">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -214,6 +234,20 @@ export default function DocumentVaultPage() {
     if (!name || sections.includes(name)) return;
     saveSections([...sections, name]);
     setNewSectionName('');
+  };
+
+  const moveSectionUp = (index: number) => {
+    if (index === 0) return;
+    const next = [...sections];
+    [next[index - 1], next[index]] = [next[index], next[index - 1]];
+    saveSections(next);
+  };
+
+  const moveSectionDown = (index: number) => {
+    if (index === sections.length - 1) return;
+    const next = [...sections];
+    [next[index], next[index + 1]] = [next[index + 1], next[index]];
+    saveSections(next);
   };
 
   const commitRenameSection = useCallback(async (oldName: string) => {
@@ -320,6 +354,81 @@ export default function DocumentVaultPage() {
 
   const totalDocs = docs.length;
 
+  // ── doc row renderer (shared between sections and ungrouped) ──────────────
+  const renderDocRow = (doc: UploadedDocument, idx: number) => {
+    const ids = docFileIds(doc);
+    const types = docFileTypes(doc);
+    const isPdf = types[0] === 'application/pdf';
+    const multiImage = ids.length > 1;
+    const isRenamingThis = renamingDocId === doc.id;
+
+    return (
+      <div
+        key={doc.id}
+        className={`flex items-center gap-3 px-4 py-3 ${idx > 0 ? 'border-t border-[var(--color-border)]' : ''} cursor-pointer hover:bg-gray-50 transition-colors`}
+        onClick={() => !isRenamingThis && setViewDoc(doc)}
+      >
+        {/* Icon */}
+        <div className="flex-shrink-0">
+          {isPdf
+            ? <FileText className="w-5 h-5 text-[var(--color-danger)]" />
+            : multiImage
+              ? <span className="text-base">🖼</span>
+              : <ImageIcon className="w-5 h-5 text-[var(--color-navy)]" />}
+        </div>
+
+        {/* Label — editable inline */}
+        <div className="flex-1 min-w-0" onClick={e => isRenamingThis && e.stopPropagation()}>
+          {isRenamingThis ? (
+            <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+              <input
+                autoFocus
+                value={renameDocInput}
+                onChange={e => setRenameDocInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') commitRenameDoc(doc);
+                  if (e.key === 'Escape') setRenamingDocId(null);
+                }}
+                onBlur={() => commitRenameDoc(doc)}
+                className="flex-1 border border-[var(--color-border)] rounded-lg px-2 py-1 text-sm"
+              />
+              <button onClick={() => commitRenameDoc(doc)} className="p-1 text-[var(--color-positive)]">
+                <Check className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm font-medium truncate">{doc.label}</p>
+              <p className="text-xs text-[var(--color-text-muted)]">
+                {formatFileSize(doc.fileSizeBytes)}
+                {multiImage ? ` · ${ids.length} images` : ''}
+                {' · '}{formatDate(doc.createdAt)}
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Actions: rename + move only (delete is in viewer) */}
+        <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+          <button
+            onClick={() => { setRenamingDocId(doc.id); setRenameDocInput(doc.label); }}
+            className="p-1.5 rounded-lg hover:bg-gray-100"
+            title="Rename"
+          >
+            <Pencil className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
+          </button>
+          <button
+            onClick={() => { setMoveTarget(doc); setMoveTo(doc.section || sections[0]); }}
+            className="p-1.5 rounded-lg hover:bg-gray-100"
+            title="Move to section"
+          >
+            <FolderInput className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -336,13 +445,88 @@ export default function DocumentVaultPage() {
         </button>
       </div>
 
-      {/* Upload zone */}
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Search documents…"
+          className="w-full border border-[var(--color-border)] rounded-lg pl-9 pr-3 py-2.5 text-sm" />
+      </div>
+
+      {/* Sections accordion */}
+      {totalDocs === 0 ? (
+        <EmptyState icon="📁" title="No documents" description="Upload your important documents to keep them safe." />
+      ) : (
+        <div className="space-y-2">
+          {sections.map(sectionName => {
+            const items = docsForSection(sectionName);
+            // Hide sections with zero documents
+            if (items.length === 0) return null;
+            const isOpen = openSections.has(sectionName);
+
+            return (
+              <div key={sectionName} className="card overflow-hidden p-0">
+                {/* Section header */}
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
+                  onClick={() => toggleSection(sectionName)}
+                >
+                  {isOpen
+                    ? <ChevronDown className="w-4 h-4 text-[var(--color-text-muted)] flex-shrink-0" />
+                    : <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)] flex-shrink-0" />}
+                  <span className="flex-1 text-sm font-semibold">{sectionName}</span>
+                  <span className="badge badge-navy">{items.length}</span>
+                </button>
+
+                {/* Items list */}
+                {isOpen && (
+                  <div className="border-t border-[var(--color-border)]">
+                    {items.map((doc, idx) => renderDocRow(doc, idx))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Ungrouped docs (legacy records with no section) */}
+          {ungrouped.length > 0 && (
+            <div className="card overflow-hidden p-0">
+              <button
+                className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
+                onClick={() => toggleSection('__ungrouped__')}
+              >
+                {openSections.has('__ungrouped__')
+                  ? <ChevronDown className="w-4 h-4 text-[var(--color-text-muted)] flex-shrink-0" />
+                  : <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)] flex-shrink-0" />}
+                <span className="flex-1 text-sm font-semibold text-[var(--color-text-muted)]">Uncategorised</span>
+                <span className="badge badge-navy">{ungrouped.length}</span>
+              </button>
+              {openSections.has('__ungrouped__') && (
+                <div className="border-t border-[var(--color-border)]">
+                  {ungrouped.map((doc, idx) => renderDocRow(doc, idx))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Upload zone — at bottom */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+
       {!pendingFiles.length ? (
         <div>
           <div className="upload-zone" onClick={() => fileInputRef.current?.click()}>
             <div className="flex flex-col items-center gap-2">
               <span className="text-3xl">📄</span>
-              <span className="text-sm font-medium">Tap to upload</span>
+              <span className="text-sm font-medium">Tap to upload document</span>
               <span className="text-xs text-[var(--color-text-muted)]">PDF · JPG · PNG · WEBP · Max 10 MB · Multiple images OK</span>
             </div>
           </div>
@@ -399,209 +583,14 @@ export default function DocumentVaultPage() {
         </div>
       )}
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
-        className="hidden"
-        onChange={handleFileSelect}
-      />
-
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
-        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search documents…"
-          className="w-full border border-[var(--color-border)] rounded-lg pl-9 pr-3 py-2.5 text-sm" />
-      </div>
-
-      {/* Sections accordion */}
-      {totalDocs === 0 ? (
-        <EmptyState icon="📁" title="No documents" description="Upload your important documents to keep them safe." />
-      ) : (
-        <div className="space-y-2">
-          {sections.map(sectionName => {
-            const items = docsForSection(sectionName);
-            const isOpen = openSections.has(sectionName);
-
-            return (
-              <div key={sectionName} className="card overflow-hidden p-0">
-                {/* Section header */}
-                <button
-                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
-                  onClick={() => toggleSection(sectionName)}
-                >
-                  {isOpen
-                    ? <ChevronDown className="w-4 h-4 text-[var(--color-text-muted)] flex-shrink-0" />
-                    : <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)] flex-shrink-0" />}
-                  <span className="flex-1 text-sm font-semibold">{sectionName}</span>
-                  <span className="badge badge-navy">{items.length}</span>
-                </button>
-
-                {/* Items list */}
-                {isOpen && (
-                  <div className="border-t border-[var(--color-border)]">
-                    {items.length === 0 ? (
-                      <p className="px-4 py-3 text-sm text-[var(--color-text-muted)]">No documents in this section.</p>
-                    ) : (
-                      items.map((doc, idx) => {
-                        const ids = docFileIds(doc);
-                        const types = docFileTypes(doc);
-                        const isPdf = types[0] === 'application/pdf';
-                        const multiImage = ids.length > 1;
-                        const isRenamingThis = renamingDocId === doc.id;
-
-                        return (
-                          <div
-                            key={doc.id}
-                            className={`flex items-center gap-3 px-4 py-3 ${idx > 0 ? 'border-t border-[var(--color-border)]' : ''} cursor-pointer hover:bg-gray-50 transition-colors`}
-                            onClick={() => !isRenamingThis && setViewDoc(doc)}
-                          >
-                            {/* Icon */}
-                            <div className="flex-shrink-0">
-                              {isPdf
-                                ? <FileText className="w-5 h-5 text-[var(--color-danger)]" />
-                                : multiImage
-                                  ? <span className="text-base">🖼</span>
-                                  : <ImageIcon className="w-5 h-5 text-[var(--color-navy)]" />}
-                            </div>
-
-                            {/* Label — editable inline */}
-                            <div className="flex-1 min-w-0" onClick={e => isRenamingThis && e.stopPropagation()}>
-                              {isRenamingThis ? (
-                                <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                                  <input
-                                    autoFocus
-                                    value={renameDocInput}
-                                    onChange={e => setRenameDocInput(e.target.value)}
-                                    onKeyDown={e => {
-                                      if (e.key === 'Enter') commitRenameDoc(doc);
-                                      if (e.key === 'Escape') setRenamingDocId(null);
-                                    }}
-                                    onBlur={() => commitRenameDoc(doc)}
-                                    className="flex-1 border border-[var(--color-border)] rounded-lg px-2 py-1 text-sm"
-                                  />
-                                  <button onClick={() => commitRenameDoc(doc)} className="p-1 text-[var(--color-positive)]">
-                                    <Check className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <>
-                                  <p className="text-sm font-medium truncate">{doc.label}</p>
-                                  <p className="text-xs text-[var(--color-text-muted)]">
-                                    {formatFileSize(doc.fileSizeBytes)}
-                                    {multiImage ? ` · ${ids.length} images` : ''}
-                                    {' · '}{formatDate(doc.createdAt)}
-                                  </p>
-                                </>
-                              )}
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                              <button
-                                onClick={() => { setRenamingDocId(doc.id); setRenameDocInput(doc.label); }}
-                                className="p-1.5 rounded-lg hover:bg-gray-100"
-                                title="Rename"
-                              >
-                                <Pencil className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
-                              </button>
-                              <button
-                                onClick={() => { setMoveTarget(doc); setMoveTo(doc.section || sections[0]); }}
-                                className="p-1.5 rounded-lg hover:bg-gray-100"
-                                title="Move to section"
-                              >
-                                <FolderInput className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
-                              </button>
-                              <button
-                                onClick={() => setDeleteTarget(doc)}
-                                className="p-1.5 rounded-lg hover:bg-[var(--color-danger-light)]"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-3.5 h-3.5 text-[var(--color-danger)]" />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Ungrouped docs (legacy records with no section) */}
-          {ungrouped.length > 0 && (
-            <div className="card overflow-hidden p-0">
-              <button
-                className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
-                onClick={() => toggleSection('__ungrouped__')}
-              >
-                {openSections.has('__ungrouped__')
-                  ? <ChevronDown className="w-4 h-4 text-[var(--color-text-muted)] flex-shrink-0" />
-                  : <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)] flex-shrink-0" />}
-                <span className="flex-1 text-sm font-semibold text-[var(--color-text-muted)]">Uncategorised</span>
-                <span className="badge badge-navy">{ungrouped.length}</span>
-              </button>
-              {openSections.has('__ungrouped__') && (
-                <div className="border-t border-[var(--color-border)]">
-                  {ungrouped.map((doc, idx) => {
-                    const ids = docFileIds(doc);
-                    const types = docFileTypes(doc);
-                    const isPdf = types[0] === 'application/pdf';
-                    const multiImage = ids.length > 1;
-                    const isRenamingThis = renamingDocId === doc.id;
-
-                    return (
-                      <div
-                        key={doc.id}
-                        className={`flex items-center gap-3 px-4 py-3 ${idx > 0 ? 'border-t border-[var(--color-border)]' : ''} cursor-pointer hover:bg-gray-50`}
-                        onClick={() => !isRenamingThis && setViewDoc(doc)}
-                      >
-                        <div className="flex-shrink-0">
-                          {isPdf
-                            ? <FileText className="w-5 h-5 text-[var(--color-danger)]" />
-                            : multiImage ? <span className="text-base">🖼</span>
-                              : <ImageIcon className="w-5 h-5 text-[var(--color-navy)]" />}
-                        </div>
-                        <div className="flex-1 min-w-0" onClick={e => isRenamingThis && e.stopPropagation()}>
-                          {isRenamingThis ? (
-                            <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                              <input autoFocus value={renameDocInput} onChange={e => setRenameDocInput(e.target.value)}
-                                onKeyDown={e => { if (e.key === 'Enter') commitRenameDoc(doc); if (e.key === 'Escape') setRenamingDocId(null); }}
-                                onBlur={() => commitRenameDoc(doc)}
-                                className="flex-1 border border-[var(--color-border)] rounded-lg px-2 py-1 text-sm" />
-                              <button onClick={() => commitRenameDoc(doc)} className="p-1 text-[var(--color-positive)]"><Check className="w-4 h-4" /></button>
-                            </div>
-                          ) : (
-                            <>
-                              <p className="text-sm font-medium truncate">{doc.label}</p>
-                              <p className="text-xs text-[var(--color-text-muted)]">
-                                {formatFileSize(doc.fileSizeBytes)}{multiImage ? ` · ${ids.length} images` : ''} · {formatDate(doc.createdAt)}
-                              </p>
-                            </>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                          <button onClick={() => { setRenamingDocId(doc.id); setRenameDocInput(doc.label); }} className="p-1.5 rounded-lg hover:bg-gray-100"><Pencil className="w-3.5 h-3.5 text-[var(--color-text-muted)]" /></button>
-                          <button onClick={() => { setMoveTarget(doc); setMoveTo(doc.section || sections[0]); }} className="p-1.5 rounded-lg hover:bg-gray-100"><FolderInput className="w-3.5 h-3.5 text-[var(--color-text-muted)]" /></button>
-                          <button onClick={() => setDeleteTarget(doc)} className="p-1.5 rounded-lg hover:bg-[var(--color-danger-light)]"><Trash2 className="w-3.5 h-3.5 text-[var(--color-danger)]" /></button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Full-screen viewer */}
       {viewDoc && (
-        <DocViewer doc={viewDoc} onClose={() => setViewDoc(null)} getFile={getFile} />
+        <DocViewer
+          doc={viewDoc}
+          onClose={() => setViewDoc(null)}
+          onDelete={() => setDeleteTarget(viewDoc)}
+          getFile={getFile}
+        />
       )}
 
       {/* Delete confirm */}
@@ -642,10 +631,22 @@ export default function DocumentVaultPage() {
               <button onClick={() => setShowManageSections(false)}><X className="w-5 h-5 text-[var(--color-text-muted)]" /></button>
             </div>
             <div className="space-y-2">
-              {sections.map(s => {
+              {sections.map((s, idx) => {
                 const count = docs.filter(d => (d.section || sections[0]) === s).length;
                 return (
                   <div key={s} className="flex items-center gap-2 py-1">
+                    {/* Up/down reorder */}
+                    <div className="flex flex-col gap-0.5 flex-shrink-0">
+                      <button onClick={() => moveSectionUp(idx)} disabled={idx === 0}
+                        className="p-0.5 disabled:opacity-20 hover:bg-gray-100 rounded">
+                        <ChevronUp className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
+                      </button>
+                      <button onClick={() => moveSectionDown(idx)} disabled={idx === sections.length - 1}
+                        className="p-0.5 disabled:opacity-20 hover:bg-gray-100 rounded">
+                        <ChevronDown className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
+                      </button>
+                    </div>
+
                     {renamingSection === s ? (
                       <>
                         <input autoFocus value={renameTo} onChange={e => setRenameTo(e.target.value)}
