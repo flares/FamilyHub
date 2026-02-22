@@ -12,7 +12,7 @@ export async function deriveKey(password: string, salt: Uint8Array): Promise<Cry
     ['deriveKey'],
   );
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt: salt.buffer.slice(salt.byteOffset, salt.byteOffset + salt.byteLength) as ArrayBuffer, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     keyMaterial,
     { name: 'AES-GCM', length: 256 },
     false,
@@ -26,7 +26,10 @@ export function generateSalt(): Uint8Array {
 
 export async function encryptBytes(key: CryptoKey, data: ArrayBuffer | Uint8Array): Promise<Uint8Array> {
   const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
-  const buf = data instanceof Uint8Array ? data.buffer : data;
+  // Copy into a plain ArrayBuffer to satisfy Web Crypto API strict typing
+  const buf: ArrayBuffer = data instanceof Uint8Array
+    ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer
+    : data;
   const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, buf);
   const result = new Uint8Array(IV_BYTES + encrypted.byteLength);
   result.set(iv, 0);
